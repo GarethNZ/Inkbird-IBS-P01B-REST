@@ -3,13 +3,12 @@
 import ssl
 import sys
 from time import sleep
-from bluepy import btle
-import paho.mqtt.client as mqtt
+import simplepyble
+#import paho.mqtt.client as mqtt
 import logging
 from configparser import ConfigParser
 import os.path
 import argparse
-import sdnotify
 
 logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -18,8 +17,8 @@ logging.basicConfig(
         
 # Argparse
 
-project_name = 'Inkbird MQTT Sensor for Bluetooth pool sensor'
-project_url = 'https://github.com/ptc/Inkbird-IBS-P01B-MQTT'
+project_name = 'Inkbird REST API provider for Bluetooth pool sensor'
+project_url = 'https://github.com/garethnz/Inkbird-IBS-P01B-REST'
 
 parser = argparse.ArgumentParser(description=project_name, epilog='For further details see: ' + project_url)
 parser.add_argument('--config_dir', help='set directory where config.ini is located', default=sys.path[0])
@@ -66,39 +65,36 @@ def on_publish(client, userdata, mid):
 
 # MQTT connection
 logging.info('Connecting to MQTT broker ...')
-mqtt_client = mqtt.Client()
-mqtt_client.on_connect = on_connect
-mqtt_client.on_publish = on_publish
+    # mqtt_client = mqtt.Client()
+    # mqtt_client.on_connect = on_connect
+    # mqtt_client.on_publish = on_publish
 
-if config['MQTT'].getboolean('tls', False):
-    # According to the docs, setting PROTOCOL_SSLv23 "Selects the highest protocol version
-    # that both the client and server support. Despite the name, this option can select
-    # “TLS” protocols as well as “SSL”" - so this seems like a resonable default
-    mqtt_client.tls_set(
-        ca_certs=config['MQTT'].get('tls_ca_cert', None),
-        keyfile=config['MQTT'].get('tls_keyfile', None),
-        certfile=config['MQTT'].get('tls_certfile', None),
-        tls_version=ssl.PROTOCOL_SSLv23
-    )
+    # if config['MQTT'].getboolean('tls', False):
+    #     # According to the docs, setting PROTOCOL_SSLv23 "Selects the highest protocol version
+    #     # that both the client and server support. Despite the name, this option can select
+    #     # “TLS” protocols as well as “SSL”" - so this seems like a resonable default
+    #     mqtt_client.tls_set(
+    #         ca_certs=config['MQTT'].get('tls_ca_cert', None),
+    #         keyfile=config['MQTT'].get('tls_keyfile', None),
+    #         certfile=config['MQTT'].get('tls_certfile', None),
+    #         tls_version=ssl.PROTOCOL_SSLv23
+    #     )
 
-mqtt_username = config['MQTT'].get('username')
-mqtt_password = config['MQTT'].get('password', None)
+    # mqtt_username = config['MQTT'].get('username')
+    # mqtt_password = config['MQTT'].get('password', None)
 
-if mqtt_username:
-    mqtt_client.username_pw_set(mqtt_username, mqtt_password)
-try:
-    mqtt_client.connect(config['MQTT'].get('hostname', 'localhost'),
-                        port=int(config['MQTT'].get('port', '1883')),
-                        keepalive=config['MQTT'].getint('keepalive', 60))
-except:
-    logging.error('MQTT connection error. Please check your settings in the configuration file "config.ini"')
-    sys.exit(1)
-else:
-    mqtt_client.loop_start()
-    sleep(1.0) # some slack to establish the connection
-
-n = sdnotify.SystemdNotifier()
-n.notify("READY=1")
+    # if mqtt_username:
+    #     mqtt_client.username_pw_set(mqtt_username, mqtt_password)
+    # try:
+    #     mqtt_client.connect(config['MQTT'].get('hostname', 'localhost'),
+    #                         port=int(config['MQTT'].get('port', '1883')),
+    #                         keepalive=config['MQTT'].getint('keepalive', 60))
+    # except:
+    #     logging.error('MQTT connection error. Please check your settings in the configuration file "config.ini"')
+    #     sys.exit(1)
+    # else:
+    #     mqtt_client.loop_start()
+    #     sleep(1.0) # some slack to establish the connection
 
 def float_value(nums):
     # check if temp is negative

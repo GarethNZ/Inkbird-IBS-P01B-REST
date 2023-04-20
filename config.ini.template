@@ -11,25 +11,19 @@ enabled = true
 # The period between two measurements in seconds (Default: 1800)
 read_interval = 1800
 
-[MQTT]
+[REST]
 
-# The hostname or IP address of the MQTT broker to connect to (Default: localhost)
-# Also read from the MQTT_HOSTNAME environment variable
-hostname = localhost
-
-# The TCP port the MQTT broker is listening on (Default: 1883)
-# Also read from the MQTT_PORT environment variable
-port = 1883
+# The TCP port this REST server is listening on (Default: 8080)
+# Also read from the REST_PORT environment variable
+port = 8080
 
 # Maximum period in seconds between ping messages to the broker. (Default: 60)
 keepalive = 60
 
-topic = garden/sensor/pool/temp
-
-# The MQTT broker authentification credentials (Default: no authentication)
-# Will also read from MQTT_USERNAME and MQTT_PASSWORD environment variables
-username = mqtt-user
-password = mqtt-password
+# The REST Server API authentification credentials (Default: no authentication)
+# Will also read from REST_USERNAME and REST_PASSWORD environment variables
+username = rest-user
+password = rest-password
 
 # Enable TLS/SSL on the connection
 tls = false
