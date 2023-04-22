@@ -38,63 +38,14 @@ except IOError:
     logging.error('No configuration file "config.ini"')
     sys.exit(1)
 
-topic = config['MQTT'].get('topic', "/test/sensor/pool") 
-mac = config['Sensors'].get('PoolSensor', 'PoolSensor')
+#topic = config['MQTT'].get('topic', "/test/sensor/pool") 
+peripheral_mac = config['Sensors'].get('PoolSensor', 'PoolSensor')
 read_interval = int(config['Daemon'].get('read_interval', 3600))
 run_as_daemon = config['Daemon'].get('enabled', True)
 
 if nodaemon_arg:
     run_as_daemon = False
     logging.info("non daemon mode")
-
-
-# Eclipse Paho callbacks - http://www.eclipse.org/paho/clients/python/docs/#callbacks
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        logging.info('MQTT connection established')
-        print()
-    else:
-        logging.error('Connection error with result code {} - {}'.format(str(rc), mqtt.connack_string(rc)))
-        #kill main thread
-        os._exit(1)
-
-
-def on_publish(client, userdata, mid):
-    #print_line('Data successfully published.')
-    pass
-
-# MQTT connection
-logging.info('Connecting to MQTT broker ...')
-    # mqtt_client = mqtt.Client()
-    # mqtt_client.on_connect = on_connect
-    # mqtt_client.on_publish = on_publish
-
-    # if config['MQTT'].getboolean('tls', False):
-    #     # According to the docs, setting PROTOCOL_SSLv23 "Selects the highest protocol version
-    #     # that both the client and server support. Despite the name, this option can select
-    #     # “TLS” protocols as well as “SSL”" - so this seems like a resonable default
-    #     mqtt_client.tls_set(
-    #         ca_certs=config['MQTT'].get('tls_ca_cert', None),
-    #         keyfile=config['MQTT'].get('tls_keyfile', None),
-    #         certfile=config['MQTT'].get('tls_certfile', None),
-    #         tls_version=ssl.PROTOCOL_SSLv23
-    #     )
-
-    # mqtt_username = config['MQTT'].get('username')
-    # mqtt_password = config['MQTT'].get('password', None)
-
-    # if mqtt_username:
-    #     mqtt_client.username_pw_set(mqtt_username, mqtt_password)
-    # try:
-    #     mqtt_client.connect(config['MQTT'].get('hostname', 'localhost'),
-    #                         port=int(config['MQTT'].get('port', '1883')),
-    #                         keepalive=config['MQTT'].getint('keepalive', 60))
-    # except:
-    #     logging.error('MQTT connection error. Please check your settings in the configuration file "config.ini"')
-    #     sys.exit(1)
-    # else:
-    #     mqtt_client.loop_start()
-    #     sleep(1.0) # some slack to establish the connection
 
 def float_value(nums):
     # check if temp is negative
@@ -106,40 +57,81 @@ def float_value(nums):
 def c_to_f(temperature_c):
     return 9.0/5.0 * temperature_c + 32
 
+def connect_to_peripheral():
+    adapters = simplepyble.Adapter.get_adapters()
+
+    if len(adapters) == 0:
+        print("No adapters found")
+
+    adapter = adapters[0]
+    result = adapter.scan_for(5000)
+    peripherals = adapter.scan_get_results()
+
+    for i, peripheral in enumerate(peripherals):
+        if peripheral.address() == peripheral_mac:
+            return peripheral
+    return None
+
+peripheral = connect_to_peripheral()
+if peripheral is None:
+    print(f"Peripheral {peripheral_mac} not found")
+    exit()
+print(f"Connecting to {peripheral_mac}")
+
+# TODO: ensure disconnect
+peripheral.connect()
+
+def get_temperature_service(peripheral):
+    # TODO add these to config.ini
+    characteristic_uuid = "0000fff2-0000-1000-8000-00805f9b34fb"
+    services = peripheral.services()
+    print(f"Looking for service and characteristic")
+    for service in services:
+        for characteristic in service.characteristics():
+            print(f"{service.uuid()} {characteristic.uuid()}")
+            if characteristic.uuid() == characteristic_uuid:
+                return service, characteristic
+    return None, None
+
+service, characteristic = get_temperature_service(peripheral)
+
+if service is None or characteristic is None:
+    logging.error("Unable to find required service or characteristic")
+    exit()
+
 def read_current_value():
     try:
-        dev = btle.Peripheral(mac, addrType=btle.ADDR_TYPE_PUBLIC)
-        # First two bytes on characteristic at 0x0024 contain current 
-        # temperature in Celsius as little endian value
-        readings = dev.readCharacteristic(0x0024)
-        return readings
+        return peripheral.read(service.uuid(), characteristic.uuid())
     except Exception as e:
         logging.error("Error reading BTLE: {}".format(e))
         return False
 
+# TODO: New thread
+    # app.run()
 while True:
     current_value = read_current_value()
     if not current_value:
         continue
 
-    logging.info("raw data: {}".format(current_value))
+    logging.debug("raw data: {}".format(current_value))
 
     # little endian, first two bytes are temp
     temperature_c = float_value(current_value[0:2])
-    logging.debug("temperature: {}".format(temperature_c))
+    logging.info("temperature: {}".format(temperature_c))
 
-    result = mqtt_client.publish('{}/celsius'.format(topic),temperature_c)
+    #result = mqtt_client.publish('{}/celsius'.format(topic),temperature_c)
 
-    if result[0] == 0:
-        logging.debug("mqtt: sent {}, {}".format(topic,temperature_c))
-    else:
-        logging.info("mqtt: failed to send {}".format(topic))
+    # if result[0] == 0:
+    #     logging.debug("mqtt: sent {}, {}".format(topic,temperature_c))
+    # else:
+    #     logging.info("mqtt: failed to send {}".format(topic))
 
     if run_as_daemon:
         logging.debug('Going to sleep for {} seconds ...'.format(read_interval))
         sleep(read_interval)
     else:
         logging.info('One time execution done, exiting')
-        mqtt_client.disconnect()
+        #mqtt_client.disconnect()
         break
-    
+
+peripheral.disconnect()
