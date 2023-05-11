@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-import ssl
 import sys
-from time import sleep
-import simplepyble
-#import paho.mqtt.client as mqtt
 import logging
+import threading
 from configparser import ConfigParser
 import os.path
 import argparse
+from inkbird_pool_sensor import InkBirdPoolSensor
+
+from flask import Flask
 
 logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging.DEBUG,
+        level=logging.INFO,
         datefmt='%Y-%m-%d %H:%M:%S')
         
 # Argparse
@@ -43,95 +43,31 @@ peripheral_mac = config['Sensors'].get('PoolSensor', 'PoolSensor')
 read_interval = int(config['Daemon'].get('read_interval', 3600))
 run_as_daemon = config['Daemon'].get('enabled', True)
 
-if nodaemon_arg:
-    run_as_daemon = False
+#Prep inkbird
+inkbird_poolsensor = InkBirdPoolSensor(peripheral_mac)
+#
+
+# Thread Shared Var
+current_temp = None
+
+if nodaemon_arg or not run_as_daemon:
     logging.info("non daemon mode")
-
-def float_value(nums):
-    # check if temp is negative
-    num = (nums[1]<<8)|nums[0]
-    if nums[1] == 0xff:
-        num = -( (num ^ 0xffff ) + 1)
-    return float(num) / 100
-
-def c_to_f(temperature_c):
-    return 9.0/5.0 * temperature_c + 32
-
-def connect_to_peripheral():
-    adapters = simplepyble.Adapter.get_adapters()
-
-    if len(adapters) == 0:
-        print("No adapters found")
-
-    adapter = adapters[0]
-    result = adapter.scan_for(5000)
-    peripherals = adapter.scan_get_results()
-
-    for i, peripheral in enumerate(peripherals):
-        if peripheral.address() == peripheral_mac:
-            return peripheral
-    return None
-
-peripheral = connect_to_peripheral()
-if peripheral is None:
-    print(f"Peripheral {peripheral_mac} not found")
+    
+    inkbird_poolsensor.read_current_value()
+    
     exit()
-print(f"Connecting to {peripheral_mac}")
+else:    
+    daemon_thread = threading.Thread(target=inkbird_poolsensor.daemon_function_loop, args=(read_interval,), daemon=True)
+    daemon_thread.start()
 
-# TODO: ensure disconnect
-peripheral.connect()
-
-def get_temperature_service(peripheral):
-    # TODO add these to config.ini
-    characteristic_uuid = "0000fff2-0000-1000-8000-00805f9b34fb"
-    services = peripheral.services()
-    print(f"Looking for service and characteristic")
-    for service in services:
-        for characteristic in service.characteristics():
-            print(f"{service.uuid()} {characteristic.uuid()}")
-            if characteristic.uuid() == characteristic_uuid:
-                return service, characteristic
-    return None, None
-
-service, characteristic = get_temperature_service(peripheral)
-
-if service is None or characteristic is None:
-    logging.error("Unable to find required service or characteristic")
-    exit()
-
-def read_current_value():
-    try:
-        return peripheral.read(service.uuid(), characteristic.uuid())
-    except Exception as e:
-        logging.error("Error reading BTLE: {}".format(e))
-        return False
-
-# TODO: New thread
-    # app.run()
-while True:
-    current_value = read_current_value()
-    if not current_value:
-        continue
-
-    logging.debug("raw data: {}".format(current_value))
-
-    # little endian, first two bytes are temp
-    temperature_c = float_value(current_value[0:2])
-    logging.info("temperature: {}".format(temperature_c))
-
-    #result = mqtt_client.publish('{}/celsius'.format(topic),temperature_c)
-
-    # if result[0] == 0:
-    #     logging.debug("mqtt: sent {}, {}".format(topic,temperature_c))
-    # else:
-    #     logging.info("mqtt: failed to send {}".format(topic))
-
-    if run_as_daemon:
-        logging.debug('Going to sleep for {} seconds ...'.format(read_interval))
-        sleep(read_interval)
+# Start rest-api
+app = Flask(__name__)
+@app.route("/temperature")
+def main():
+    global inkbird_poolsensor
+    # TODO: Return error if None
+    if inkbird_poolsensor.current_temp is None:
+        return "404"
     else:
-        logging.info('One time execution done, exiting')
-        #mqtt_client.disconnect()
-        break
-
-peripheral.disconnect()
+        return str(f"{inkbird_poolsensor.current_temp}")
+app.run(host="0.0.0.0")
