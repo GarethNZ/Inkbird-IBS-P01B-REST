@@ -17,26 +17,6 @@ read_interval = 1800
 # Also read from the REST_PORT environment variable
 port = 8080
 
-# Maximum period in seconds between ping messages to the broker. (Default: 60)
-keepalive = 60
-
-# The REST Server API authentification credentials (Default: no authentication)
-# Will also read from REST_USERNAME and REST_PASSWORD environment variables
-username = rest-user
-password = rest-password
-
-# Enable TLS/SSL on the connection
-tls = false
-
-# Path to CA Certificate file to verify host
-#tls_ca_cert =
-
-# Path to TLS client auth key file
-#tls_keyfile =
-
-# Path to TLS client auth certificate file
-#tls_certfile =
-
 [Sensors]
 
 PoolSensor = AA:BB:CC:DD:EE:FF
