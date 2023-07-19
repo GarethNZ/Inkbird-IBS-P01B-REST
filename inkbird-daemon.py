@@ -38,7 +38,6 @@ except IOError:
     logging.error('No configuration file "config.ini"')
     sys.exit(1)
 
-#topic = config['MQTT'].get('topic', "/test/sensor/pool") 
 peripheral_mac = config['Sensors'].get('PoolSensor', 'PoolSensor')
 read_interval = int(config['Daemon'].get('read_interval', 3600))
 run_as_daemon = config['Daemon'].get('enabled', True)

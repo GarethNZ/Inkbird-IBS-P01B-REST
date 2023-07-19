@@ -1,14 +1,14 @@
 [Unit]
-Description=Inkbird IBS-P01B Bluetooth MQTT daemin
-Documentation=https://github.com/ptc/Inkbird-IBS-P01B-MQTT
+Description=Inkbird IBS-P01B Bluetooth REST daemon
+Documentation=https://github.com/GarethNZ/Inkbird-IBS-P01B-REST
 After=network.target bluetooth.service mosquitto.service
 
 [Service]
 Type=notify
 User=daemon
 Group=daemon
-WorkingDirectory=/opt/Inkbird-IBS-P01B-MQTT/
-ExecStart=/usr/bin/python3 /opt/Inkbird-IBS-P01B-MQTT/inkbird-daemon.py
+WorkingDirectory=/opt/Inkbird-IBS-P01B-REST/
+ExecStart=/usr/bin/python3 /opt/Inkbird-IBS-P01B-REST/inkbird-daemon.py
 StandardOutput=null
 #StandardOutput=syslog
 #SyslogIdentifier=inkbird
