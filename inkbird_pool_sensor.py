@@ -69,6 +69,8 @@ class InkBirdPoolSensor:
 
     def read_current_value(self):
         try:
+            if not self.peripheral.is_connected():
+                self.peripheral.connect()
             raw_value = self.peripheral.read(self.service.uuid(), self.characteristic.uuid())
             if raw_value is None:
                 return None
@@ -78,16 +80,20 @@ class InkBirdPoolSensor:
             logging.info("temperature: {}".format(self.temperature_c))
 
             return self.temperature_c
-        except Exception as e:
-            logging.error("Error reading BTLE: {}".format(e))
+        except Exception as ex:
+            # TODO: Reconnect if the error was "Peripheral is not connected."
+            template = "Error reading BTLE: type {0}. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            logging.error(message)
+            #if (ex is RuntimeError):
+                #then ex.args = ('Peripheral is not connected.',)
+                # Ignore the failure for now
             return False
 
     def daemon_function_loop(self, read_interval):
         while True:
             self.current_temp = self.read_current_value()
-            if not self.current_temp:
-                continue
-
+            
             logging.debug('Going to sleep for {} seconds ...'.format(read_interval))
             sleep(read_interval)
             

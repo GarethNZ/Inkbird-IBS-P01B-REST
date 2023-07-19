@@ -8,7 +8,7 @@ import os.path
 import argparse
 from inkbird_pool_sensor import InkBirdPoolSensor
 
-from flask import Flask
+from flask import Flask, abort
 
 logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -47,9 +47,6 @@ run_as_daemon = config['Daemon'].get('enabled', True)
 inkbird_poolsensor = InkBirdPoolSensor(peripheral_mac)
 #
 
-# Thread Shared Var
-current_temp = None
-
 if nodaemon_arg or not run_as_daemon:
     logging.info("non daemon mode")
     
@@ -65,9 +62,9 @@ app = Flask(__name__)
 @app.route("/temperature")
 def main():
     global inkbird_poolsensor
-    # TODO: Return error if None
-    if inkbird_poolsensor.current_temp is None:
-        return "404"
+    
+    if inkbird_poolsensor.current_temp is False:
+        return abort(404)
     else:
         return str(f"{inkbird_poolsensor.current_temp}")
 app.run(host="0.0.0.0")
